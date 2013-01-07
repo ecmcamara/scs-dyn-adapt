@@ -1,0 +1,10 @@
+module scs{
+	module demos{
+		module helloworld
+		{
+			interface IHello{
+				void sayHello(in string str);
+			};
+		};
+	};
+};

@@ -1,0 +1,31 @@
+#ifndef SCS_MEBRANE
+#define SCS_MEMBRANE
+#include <scs.idl>
+
+module scs {
+	module core{
+	
+		exception ComponentAlreadyExistsInMembrane{};
+		exception ComponentIsNotIntoMembrane{};
+		
+		typedef sequence<IComponent> Components;
+		typedef unsigned long MembershipId;
+		typedef unsigned long BindingId;
+		
+		interface IContentController {
+			
+			string getId();
+			MembershipId addSubComponent(in IComponent obj);
+			void removeSubComponent(in MembershipId id);
+			Components getSubComponents();
+			IComponent findComponent(in MembershipId id);
+			BindingId bindFacet(in MembershipId subcomponent,in string internalFacetName,in string externalFacetName);
+			void unbindFacet(in BindingId id);
+			BindingId bindReceptacle(in MembershipId subcomponent,in string internalReceptacleName,in string externalReceptacleName);
+			void unbindReceptacle(in BindingId id);
+		
+		};
+	};
+};
+
+#endif
