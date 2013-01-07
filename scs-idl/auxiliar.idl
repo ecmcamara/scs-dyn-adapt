@@ -1,0 +1,78 @@
+#ifndef AUXILIAR_IDL
+#define AUXILIAR_IDL
+
+#include "scs.idl"
+
+module scs {
+  module auxiliar{
+    /** \brief Indicates that there's no help information available. */
+    exception HelpInfoNotAvailable{};
+    /** \brief Indicates that the provided property name doesn't exist.*/
+    exception UndefinedProperty{};
+    /** \brief Indicates that the property is read-only and cannot be changed. */
+    exception ReadOnlyProperty{};
+    /** \brief Indicates that the provided property is invalid. */
+    exception InvalidProperty{ 
+      string reason; /**< \brief Reason for invalidity. */
+    };
+
+    /**
+     * \brief Property. Composed of a name, a value, and a boolean indicating
+     * if it's read-only or not.
+     */
+    struct Property {
+      /** \brief The name of the property. */
+      string name;
+      /** \brief The value of the property. */
+      string value;
+      /** \brief Indicates wether the property can be changed or not. */
+      boolean read_only;
+    };
+    typedef sequence<Property> PropertySeq; /**< \brief A sequence of properties. */
+
+    /**
+     * \brief This interface provides help strings for a collection of components.
+     */
+    interface ComponentHelp {
+      /**
+       * \brief Provides help info for a specific component.
+       * 
+       * \param[in] id The component's id.
+       * \return Help string.
+       */
+      string getHelpInfo (in core::ComponentId id)
+        raises (HelpInfoNotAvailable);
+    };
+
+    /**
+     * \brief This interface provides access to exported properties of
+     * a component.
+     */
+    interface ComponentProperties {
+      /**
+       * \brief Given a property name, sets a new value. If the property doesn't exist,
+       * does nothing.
+       * 
+       * \param[in] prop The property with name and value to be set.
+       * \exception ReadOnlyProperty If the property cannot be changed.
+       */
+      void setProperty (in Property prop) raises (ReadOnlyProperty);
+      /**
+       * \brief Given a property name, returns its value.
+       * 
+       * \param[in] name The name of the property.
+       * \return The desired property.
+       * \exception UndefinedProperty If the property name does not exist.
+       */
+      Property getProperty (in string name) raises (UndefinedProperty);
+      /**
+       * \brief Provides an array with all the component's properties.
+       *
+       * \return A sequence with all properties.
+       */
+      PropertySeq getProperties ();
+    };
+  };
+};
+
+#endif

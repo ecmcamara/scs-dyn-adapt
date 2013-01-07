@@ -1,0 +1,562 @@
+\documentclass[12pt]{article}
+
+%% Estilos e Plug-Ins
+\usepackage{a4}
+\usepackage{times}
+\usepackage[latin1]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{color}
+\usepackage{epsfig}
+\usepackage{mwlabinputs}
+
+\setlength{\parskip}{6mm}
+\textheight=8.2in
+
+%% Redefines the label 'Listing' to ..
+\def\lstlistingname{Código}
+\lstset{inputencoding=latin1}
+\codestyle{colorful}
+\bibliographystyle{acm}
+%% Removes hyperlinks borders
+\hypersetup{
+  pdfborder = {0 0 0},
+}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+
+% ===================
+% Inicio do documento
+% ===================
+
+\begin{document}
+
+\title{SCS-Lua - Tutorial - Básico}
+\author{Tecgraf \\
+        Pontifícia Universidade Católica do Rio de Janeiro
+        (PUC-Rio)\\
+        scs-users@tecgraf.puc-rio.br}
+
+\date{2011-07-13}
+\maketitle
+
+
+\pagenumbering{arabic}
+
+\section{Introdução}\label{intro}
+
+Este documento é um tutorial básico sobre a criação de componentes no modelo SCS v1.2\cite{SCS}, utilizando a versão Lua da implementação padrão. Não serão encontradas aqui explicações sobre o modelo, as quais encontram-se em documentos específicos. Também não será abordado o uso de serviços específicos desenvolvidos para o auxílio ao uso do modelo, como a infra-estrutura de execução ou a de implantação. Essas informações também podem ser obtidas em outros documentos.
+A implementação SCS-Lua 1.2.2 baseia-se na versão 5.1 da máquina virtual Lua\cite{LUA} e em CORBA v2.3\cite{CORBA}, representada pelo ORB OiL v0.5\cite{OIL}. Este documento assume que o leitor é familiarizado a conceitos de desenvolvimento de \emph{software} baseado em componentes e à terminologia CORBA.
+
+\section{Inicialização do ORB e Carga da IDL do SCS}\label{ORB}
+
+Para a criação e execução do código de um componente, é necessária a inicialização prévia de um ORB. A instância de ORB criada será passada por parâmetro posteriormente para o construtor de um componente SCS. O desenvolvedor da aplicação também é responsável por carregar a IDL do SCS. O procedimento deve ser feito de acordo com o código do Código~\ref{lst:getorb}.
+
+\begin{labeledcode}[lua]{getorb}{Criação do ORB}
+  local oil = require "oil"
+  local orb = oil.init()
+  -- A linha abaixo assume que o arquivo scs.idl esteja acessível.
+  -- Pode ser necessário informar um caminho completo ou relativo.
+  orb:loadidlfile("scs.idl")
+\end{labeledcode}
+
+O método oil.init pode receber parâmetros, descritos na documentação do OiL.
+
+\section{Passos Necessários à Criação de um Componente}\label{criacao}
+
+Aqui serão descritos os passos mínimos necessários para a criação de um componente SCS-Lua.
+
+\subsection{Definição do Identificador do Componente}\label{componentid}
+
+O identificador do componente é uma estrutura definida em IDL (scs.idl) chamada ComponentId, e representada em Lua por uma tabela. Um identificador de componente conta com os seguintes campos:
+
+\begin{itemize}
+  \item \code{name}: Nome desejado para o componente.
+  \item \code{major\_version}: Número que define a versão principal do componente.
+  \item \code{minor\_version}: Número que define a versão secundária do componente, possivelmente relacionado a uma sub-versão da versão principal.
+  \item \code{patch\_version}: Número que define a versão de revisão do componente.
+  \item \code{platform\_spec}: \emph{String} contendo quaisquer especificações de plataforma necessárias ao funcionamento do componente.
+\end{itemize}
+
+Os números de versão do componente, quando unificados, devem ser separados por pontos. Ou seja, um componente com versão principal 1, versão secundária 0 e versão de revisão 0 deve ser representado como a \emph{String} "1.0.0".
+
+\subsection{Criação do Componente Básico}\label{contexto}
+
+Todo componente SCS-Lua é representado por seu "contexto", que é a tabela Lua retornada após a criação de um novo componente. Essa tabela lua será também uma instância de classe LOOP, que chamamos de \emph{ComponentContext}. Um Contexto de Componente atua como um envólucro local para as facetas e receptáculos de um componente SCS.
+
+A classe \emph{ComponentContext} é implementada pelo módulo Lua \emph{scs.core.ComponentContext} e seu processo de instanciação engloba a criação das três facetas básicas, \emph{IComponent}, \emph{IReceptacles} e \emph{IMetaInterface}. Caso o usuário deseje utilizar uma implementação diferente de alguma dessas facetas, existe no contexto um método para a atualização de facetas chamado \emph{updateFacet}, descrito na Seção \ref{facetas}.
+
+Como o contexto é quem cria os objetos CORBA, é necessário que tenha acesso ao ORB logo em sua construção, para que possa inserir as facetas básicas e também facetas adicionais, posteriormente. O ORB fornecido deve ter a IDL do SCS carregada, como mencionado na Seção \ref{ORB}, assim como as IDLs que definam quaisquer facetas adicionais. Outro parâmetro obrigatório é o Identificador do Componente (Seção \ref{componentid}).
+
+Um exemplo de código para a criação de um componente básico pode ser visto no Código~\ref{lst:create}.
+
+\begin{labeledcode}[lua]{create}{Instanciação de um Novo Componente}
+local oil = require "oil"
+local ComponentContext   = require "scs.core.ComponentContext"
+
+-- Criação do ORB e carga da IDL do SCS
+local orb = oil.init()
+orb:loadidlfile("scs.idl")
+
+oil.main(function()
+  -- cria uma thread para que o ORB passe a aguardar chamadas remotas
+  oil.newthread(orb.run, orb)
+
+  -- Criação do Identificador do Componente
+  local componentId = {
+    name = "MyComponent",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = "lua"
+  }
+
+  -- Instanciação de um componente básico
+  local context = ComponentContext(orb, componentId)
+end)
+\end{labeledcode}
+
+A classe ComponentContext aceita mais um parâmetro, opcional, em seu construtor: uma tabela contendo chaves para as facetas básicas. Essas chaves são utilizadas como a chave do objeto CORBA no ORB, para a criação de referências persistentes. Caso uma chave não seja fornecida, o ORB automaticamente gera uma aleatória, que geralmente não é do interesse da aplicação. A tabela de chaves deve ter como índices os nomes das facetas básicas, e como valores as chaves de tipo \emph{string}. Não é necessário fornecer chaves para todas as facetas básicas.
+
+Um exemplo de código para a criação de um componente com chaves definidas pelo usuário para as facetas básicas pode ser visto no Código~\ref{lst:create2}.
+
+\begin{labeledcode}[lua]{create2}{Instanciação de um Novo Componente com Chaves}
+local oil = require "oil"
+local ComponentContext   = require "scs.core.ComponentContext"
+
+-- Criação do ORB e carga da IDL do SCS
+local orb = oil.init()
+orb:loadidlfile("scs.idl")
+
+oil.main(function()
+  -- cria uma thread para que o ORB passe a aguardar chamadas remotas
+  oil.newthread(orb.run, orb)
+
+  -- Criação do Identificador do Componente
+  local componentId = {
+    name = "MyComponent",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = "lua"
+  }
+
+  -- Criação da tabela de chaves para duas das facetas básicas.
+  local keys = {
+    IComponent = "IC",
+    IMetaInterface = "IM"
+  }
+
+  -- Instanciação de um componente com chaves definidas para as facetas básicas
+  local context = ComponentContext(orb, componentId, keys)
+end)
+\end{labeledcode}
+
+\subsection{Criação de Facetas}\label{facetas}
+
+Facetas são interfaces CORBA, e devem ser implementadas pelo desenvolvedor da aplicação, como exigido pelas definições Lua desse padrão. No SCS-Lua, implementações de facetas podem ser tabelas simples. No entanto, é comum utilizar-se de orientação a objetos para a implementação de uma faceta. A biblioteca LOOP\cite{LOOP} facilita o uso do paradigma de orientação a objetos em Lua.
+
+Um exemplo de implementação de faceta com uso da biblioteca LOOP pode ser conferido no Código~\ref{lst:faceta}. Essa faceta precisa ter uma especificação em IDL. Para o nosso exemplo, utilizaremos a IDL contida no Código~\ref{lst:idl}.
+
+\begin{labeledcode}[idl]{idl}{Exemplo de IDL de uma Faceta}
+module mymodule{
+  interface MyFacet {
+    void myMethod();
+  };
+  interface AnotherFacet {
+    void anotherMethod();
+  };
+};
+\end{labeledcode}
+
+\begin{labeledcode}[lua]{faceta}{Implementação de uma Faceta MyFacet}
+local oo = require "loop.base"
+
+-- Implementação do construtor
+local MyFacet = oo.class{}
+function MyFacet:__init()
+  return oo.rawnew(self, {})
+end
+
+-- Implementação de um método
+function MyFacet:myMethod()
+  ...
+end
+\end{labeledcode}
+
+Essa implementação posteriormente poderá ser instanciada e inserida em um componente como uma nova faceta. Para adicionar uma nova faceta a um componente, o contexto fornece o método \emph{addFacet}, que espera como parâmetros o nome, a interface e a implementação da faceta. Opcionalmente, também pode ser fornecida uma chave para a faceta, como explicado na Seção \ref{contexto} para as facetas básicas. O uso desse método pode ser visto no Código~\ref{lst:addFacet}.
+
+\begin{labeledcode}[lua]{addFacet}{Adição de uma Faceta MyFacet a um Componente}
+-- Implementação da faceta
+...
+
+-- Criação do componente
+...
+
+-- Instanciação e adição da faceta ao componente
+local facetInstance = MyFacet()
+-- O último parâmetro é opcional
+context:addFacet("MyFacetName", "IDL:mymodule/MyFacet:1.0", facetInstance, "MyKey")
+\end{labeledcode}
+
+No ato da adição de uma faceta a um componente, é realizada uma cópia da instância da faceta. A instância precisa ser alterada e assim a cópia é inserida no componente, para evitar modificações no objeto fornecido pelo usuário. Será automaticamente inserido um campo "context" na faceta, com uma referência para o contexto do seu componente. O Contexto pode ser utilizado para acessar outras facetas e o identificador do componente, entre outros dados, como descrito na Seção \ref{contexto}. Além disso, é criada uma variável de mesmo nome da faceta dentro do contexto, que referencia diretamente o objeto CORBA da faceta. Por isso, não é possível utilizar o mesmo nome para uma faceta e um receptáculo.
+
+O SCS-Lua exige ainda que facetas implementem o método \emph{\_component} de CORBA, definido pelo OiL, mas esse método já é inserido automaticamente em qualquer faceta adicionada a um componente. Esse método é o mesmo que o \emph{\_get\_component} do ORB JacORB\cite{JACORB} para Java\cite{JAVA} e retorna o objeto CORBA da faceta IComponent. Em Lua deve-se sempre chamar \emph{\_component()}, independente da linguagem do objeto remoto.
+
+Por fim, é possível substituir a implementação de uma faceta por uma diferente. Isso é feito através do método \emph{updateFacet}. O método remove a faceta antiga e adiciona a nova, mas mantém o nome, interface e a chave definida pelo usuário (se não houver sido fornecida, uma nova é gerada aleatoriamente). O Código~\ref{lst:updateFacet} mostra o uso do método.
+
+É importante notar que deve-se tomar grande cuidado ao atualizar ou remover uma faceta (existe também um método \emph{removeFacet} que não é coberto neste tutorial, mas explicado na documentação da API), pois esses tipos de ação podem levar a resultados inesperados para clientes. Isso pode ser considerado até mesmo como uma mudança em sua própria identidade. Portanto, é recomendada a atualização ou remoção de facetas somente em fase de construção ou destruição do componente, sem que suas facetas sejam conhecidas ou estejam sendo utilizadas por clientes.
+
+\begin{labeledcode}[lua]{updateFacet}{Atualização de Uma Faceta Básica}
+-- Nova implementação da faceta IComponent
+local MyIComponent = oo.class{}
+...
+
+-- Criação do componente
+...
+
+-- Atualização da faceta IComponent
+context:updateFacet("IComponent", MyIComponent())
+\end{labeledcode}
+
+Um exemplo mais detalhado de como criar uma classe LOOP que estenda uma outra classe será dado na Seção \ref{extensão}.
+
+
+\subsection{Criação de Receptáculos}\label{receptaculos}
+
+Receptáculos representam dependências de interfaces (facetas), e devem ser descritos pelo desenvolvedor da aplicação, não implementados. Eles são manipulados pela faceta básica \emph{IReceptacles}. Se a aplicação desejar manipular seus receptáculos de forma diferente, precisará substituir a implementação da faceta \emph{IReceptacles} através do método \emph{updateFacet} do contexto, como descrito na Seção \ref{facetas}.
+
+A criação de receptáculos é muito parecida com a de facetas, descrita na Seção \ref{facetas}.
+
+Para adicionar um receptáculo a um componente, o contexto fornece o método \emph{addReceptacle}, que espera como parâmetros o nome, a interface esperada e um \emph{boolean} indicando se o receptáculo deve aceitar múltiplas conexões ou somente uma. O uso desse método pode ser visto no Código~\ref{lst:addReceptacle}.
+
+\begin{labeledcode}[lua]{addReceptacle}{Adição de um Receptáculo MyReceptacle a um Componente}
+-- Criação do componente
+...
+
+-- Instanciação e adição de um receptáculo que aceita múltiplas conexões de
+-- facetas MyFacet ao componente
+context:addReceptacle("MyReceptacleName", "IDL:mymodule/MyFacet:1.0", true)
+\end{labeledcode}
+
+
+\subsection{Acesso a Facetas e Receptáculos}\label{acesso}
+
+O contexto fornece métodos para o acesso às suas facetas e receptáculos. Esses métodos retornam uma tabela com metadados sobre a faceta ou receptáculo. Exemplos são fornecidos no Código~\ref{lst:getters}.
+
+\begin{labeledcode}[lua]{getters}{Métodos de Acesso a Facetas e Receptáculos}
+-- Criação do componente
+...
+-- Adição de facetas
+...
+-- Adição de receptáculos
+
+-- Acesso à tabela de metadados da faceta MyFacet
+local facet = context:getFacetByName("MyFacetName")
+-- Acesso ao objeto CORBA da faceta MyFacet
+local obj = context.MyFacetName
+-- O objeto CORBA também pode ser acessado pela tabela de metadados
+obj = facet.facet_ref
+
+-- Acesso à tabela de metadados do receptáculo MyReceptacle
+local receptacle = context:getReceptacleByName("MyReceptacleName")
+\end{labeledcode}
+
+A tabela de metadados de uma faceta contém os seguintes campos:
+
+\begin{itemize}
+  \item \code{name}: Nome da faceta, fornecido pelo usuário. Atua como o identificador único da faceta dentro do componente.
+  \item \code{interface\_name}: A interface IDL da faceta, fornecida pelo usuário.
+  \item \code{facet\_ref}: O objeto CORBA que representa a faceta, criado pelo método \emph{addFacet}.
+  \item \code{key}: Chave opcional utilizada como a chave do objeto CORBA no ORB, para a criação de referências persistentes. Este campo somente é preenchido caso uma chave seja fornecida pelo usuário. Caso contrário, o ORB gerará automaticamente uma chave aleatória, mas este campo permanecerá nil.
+  \item \code{implementation}: Instância da faceta, fornecida pelo usuário. Utilizada para a criação do objeto CORBA que fica armazenado em facet\_ref.
+\end{itemize}
+
+Um exemplo de como acessar outras facetas de dentro da implementação de uma faceta pode ser visto no Código~\ref{lst:faceta2}.
+
+\begin{labeledcode}[lua]{faceta2}{Acesso a Outras Facetas de Dentro de Um Método de Faceta}
+...
+-- Implementação de um método
+function MyFacet:myMethod()
+  -- como acessar o contexto da instância de componente ao qual essa
+  -- faceta pertence
+  local context = self.context
+  -- como acessar e usar outras facetas da mesma instância de componente
+  local anotherFacet = context.AnotherFacet
+  anotherFacet:anotherMethod()
+end
+...
+\end{labeledcode}
+
+A tabela de metadados de um receptáculo contém os seguintes campos:
+
+\begin{itemize}
+  \item \code{name}: Nome do receptáculo. Atua como o identificador único do receptáculo dentro do componente.
+  \item \code{interface\_name}: A interface IDL esperada pelo receptáculo.
+  \item \code{is\_multiplex}: \emph{Boolean} indicando se o receptáculo aceita múltiplas conexões.
+  \item \code{connections}: Lista de conexões realizadas nesse receptáculo.
+\end{itemize}
+
+\section{Exemplo Completo}\label{exemplo}
+
+Demonstraremos aqui o uso mais simples de um componente: apenas uma faceta além das três facetas básicas. Não será criado nenhum receptáculo, apesar da existência da faceta \emph{IReceptacles}. Esta demonstração será baseada na \emph{demo} \emph{Hello}, e exemplos mais complexos poderão ser encontrados nas outras \emph{demos} do projeto.
+
+O componente \emph{Hello} oferece quatro interfaces: \emph{IComponent}, \emph{IReceptacles}, \emph{IMetaInterface} e apenas uma interface própria, de nome \emph{IHello}. Sua IDL está disponível no Código~\ref{lst:helloidl}.
+
+\begin{labeledcode}[idl]{helloidl}{IDL do Componente Hello}
+module scs{
+  module demos{
+    module helloworld {
+      interface Hello {
+        void sayHello();
+      };
+    };
+  };
+};
+\end{labeledcode}
+
+O Código~\ref{lst:hellomain} implementa a faceta \emph{IHello}, que conta com apenas um método, \emph{sayHello}. Além disso, realiza a criação do componente. O código é bastante similar ao apresentado na Seção \ref{criacao}.
+
+\begin{labeledcode}[lua]{hellomain}{Criação do Componente Hello}
+local oo  = require "loop.base"
+local oil = require "oil"
+local ComponentContext = require "scs.core.ComponentContext"
+
+-- inicialização do ORB
+-- porta e host apenas para fins do exemplo
+local orb = oil.init({host = "localhost", port = 1050})
+
+-- carga das IDLs no ORB
+orb:loadidlfile("scs.idl")
+orb:loadidlfile("hello.idl")
+
+-- implementação da faceta IHello
+local Hello = oo.class{name = "World"}
+function Hello:sayHello()
+  print("Hello " .. self.name .. "!")
+end
+
+-- função main
+oil.main(function()
+  -- instrução ao ORB para que aguarde por chamadas remotas (em uma nova "thread")
+  oil.newthread(orb.run, orb)
+
+  -- criação do ComponentId
+  local cpId = {
+    name = "Hello",
+    major_version = 1,
+    minor_version = 0,
+    patch_version = 0,
+    platform_spec = "lua"
+  }
+
+  -- cria o componente
+  local instance = ComponentContext(orb, cpId)
+
+  -- adiciona a faceta Hello
+  instance:addFacet("IHello", "IDL:scs/demos/helloworld/IHello:1.0", Hello())
+
+  -- modificação do nome a ser exibido na mensagem da faceta Hello
+  instance.IHello.name = "User"
+
+  -- publicação do IOR para que a faceta IHello do componente possa ser
+  -- encontrada. Observação: podemos exportar qualquer faceta, pois temos
+  -- o método _component para obter a faceta IComponent e, com ela,
+  -- pode-se obter outras facetas(esse passo pode ser substituído por outras
+  -- formas de publicação, como a publicação em um serviço de nomes, por
+  -- exemplo).
+  oil.writeto("hello.ior", orb:tostring(instance.IHello))
+end)
+\end{labeledcode}
+
+Por fim, temos o código "cliente", que acessa o componente. Note que esse código pode ser CORBA puro, não é necessária a criação de um componente para acessar outro componente. Um exemplo desse tipo de código pode ser visto no Código~\ref{lst:helloclient}.
+
+\begin{labeledcode}[lua]{helloclient}{Utilização do Componente Hello}
+local oil = require "oil"
+
+-- inicialização do ORB
+local orb = oil.init()
+
+-- carga das IDLs no ORB
+orb:loadidlfile("scs.idl")
+orb:loadidlfile("hello.idl")
+
+-- função main
+oil.main(function()
+  -- assume-se que o arquivo que contém o IOR (publicado pelo código
+  -- anterior) esteja disponível. O arquivo pode ter sido criado em
+  -- outra máquina e, nesse caso, tem de ser copiado manualmente
+  -- (pode-se também utilizar um método diferente de publicação,
+  -- como um serviço de nomes).
+  local iHelloIOR = oil.readfrom("hello.ior")
+
+  -- obtenção da faceta IHello e IComponent
+  local iHelloFacet = orb:newproxy(iHelloIOR, "synchronous",
+    "IDL:scs/demos/helloworld/IHello:1.0")
+  -- obtenção da faceta principal do componente, IComponent
+  local icFacet = iHelloFacet:_component()
+  -- precisamos utilizar o método narrow pois estamos recebendo um
+  -- org.omg.CORBA.Object
+  icFacet = orb:narrow(icFacet)
+
+  -- inicialização do componente (opcional, não fará nada nesse caso pois não
+  -- modificamos o método startup no servidor. O método padrão não faz nada)
+  icFacet:startup()
+
+  -- com o componente inicializado, podemos utilizá-lo à vontade.
+  -- note que não é possível modificar o campo "name" da classe Hello
+  -- remotamente, pois o campo não está definido em IDL (nem há um
+  -- método "setter").
+  iHelloFacet:sayHello()
+end)
+\end{labeledcode}
+
+Neste exemplo, a mensagem "Hello User!" será exibida somente na máquina servidor. O código cliente apenas terá a chamada \emph{sayHello()} completada corretamente e será finalizado sem erros.
+
+
+\section{Elementos Adicionais da API do SCS}\label{adicionais}
+
+As seções anteriores descreveram o uso mais comum do SCS para o desenvolvimento de aplicações baseadas em componentes. No entanto, alguns tópicos e funcionalidades adicionais merecem destaque. Nesta seção descreveremos os mais importantes, que podem ser necessários em aplicações ligeiramente mais complexas que o código apresentado anteriormente.
+
+\subsection{Extensão de Classes no LOOP}\label{extensão}
+
+Como mencionado na Seção \ref{facetas}, facetas SCS geralmente são implementadas como classes LOOP. Além disso, a representação local do componente também é uma classe, a classe \emph{ComponentContext}. Com o uso do paradigma de orientação a objetos, pode ser necessário estender algumas dessas classes.
+
+\subsubsection{Extensão do Contexto}\label{extcontexto}
+
+Em particular, o contexto pode ser usado para guardar o estado do componente como um todo, armazenando informações que sejam úteis para mais de uma faceta. A classe \emph{ComponentContext} já faz isso, guardando metadados sobre as facetas e receptáculos. Se o usuário desejar inserir novos dados nessa classe, o ideal é estendê-la. É importante notar que o construtor deve receber todos os parâmetros que o construtor da classe \emph{ComponentContext} recebe, para que possa repassá-los. A documentação do LOOP provê informações mais completas, mas o Código~\ref{lst:extensao} mostra como estender a classe \emph{ComponentContext} com herança simples.
+
+\begin{labeledcode}[lua]{extensao}{Extensão do Contexto}
+local ComponentContext   = require "scs.core.ComponentContext"
+
+-- note que ao invés de utilizar loop.base, utilizamos loop.simple, para herança
+-- simples. Para o suporte a herança múltipla, consulte o manual do LOOP.
+local oo = require "loop.simple"
+
+-- carga do orb e das IDLs
+...
+
+-- a linha abaixo especifica a classe ComponentContext como classe a ser herdada
+local MyComponentContext = oop.class({}, ComponentContext)
+function MyComponentContext:__init(orb, componentId, basicKeys)
+  -- chama o construtor da superclasse passando o self da classe atual
+  self = ComponentContext.__init(self, orb, componentId, basicKeys)
+  -- não podemos juntar a linha abaixo com a linha acima - a definição de "self"
+  -- na linha acima não é uma definição de variável local temporária
+  return self
+end
+
+-- definição de um método da classe MyComponentContext
+function MyComponentContext:aMethod()
+  -- é possível chamar métodos da superclasse ComponentContext pelo self
+  local componentId = self:getComponentId()
+  ...
+end
+
+-- criação do componente
+...
+local instance = MyComponentContext(orb, componentId)
+\end{labeledcode}
+
+\subsubsection{Extensão de Facetas}\label{extfaceta}
+
+Além do exemplo do contexto, é comum também encontrarmos a necessidade de estender classes que implementam facetas. Por exemplo, a classe \emph{Component}, que implementa a faceta \emph{IComponent}, contém métodos para gerenciar o ciclo de vida do componente, chamados \emph{startup} e \emph{shutdown}. Como a lógica desses métodos deve ficar a cargo do desenvolvedor da aplicação, suas implementações não fazem nada. Eles precisam ser sobrescritos com uma nova implementação. Lua permite que simplesmente mudemos a função no objeto diretamente, mas o Código~\ref{lst:ciclodevida} segue no uso do paradigma de orientação de objetos, estendendo a classe e sobrescrevendo o método, para exemplificar o procedimento.
+
+\begin{labeledcode}[lua]{ciclodevida}{Extensão da Faceta IComponent}
+local Component   = require "scs.core.Component"
+
+-- note que ao invés de utilizar loop.base, utilizamos loop.simple, para herança
+-- simples. Para o suporte a herança múltipla, consulte o manual do LOOP.
+local oo = require "loop.simple"
+
+-- carga do orb, das IDLs e outros requires
+...
+
+-- a linha abaixo especifica a classe Component como classe a ser herdada
+local MyIComponent = oop.class({}, Component)
+function MyIComponent:__init()
+  -- chama o construtor da superclasse passando o self da classe atual
+  self = Component.__init(self)
+  -- não podemos juntar a linha abaixo com a linha acima - a definição de "self"
+  -- na linha acima não é uma definição de variável local temporária
+  return self
+end
+
+-- sobrescrevendo o método startup
+function MyIComponent:startup()
+  ...
+end
+
+-- criação do componente
+...
+-- O instância de ComponentContext já vem com a faceta IComponent padrão
+local instance = ComponentContext(orb, componentId)
+-- substituição da faceta IComponent padrão pela nova implementação
+instance:updateFacet("IComponent", MyIComponent())
+\end{labeledcode}
+
+\subsection{Builders}\label{builders}
+Em todos os exemplos anteriores, a definição e "montagem" do componente (adição de facetas e receptáculos) é feita dentro do código fonte. Isso significa que, caso seja necessária alguma mudança nessa configuração, o código-fonte precisa ser alterado. Lua é uma linguagem interpretada, mas o código pode ser pré-compilado e nesse caso uma alteração desse tipo levaria a uma recompilação. É fácil perceber que essa configuração do componente pode ser definida externamente, permitindo alterações sem a necessidade de mudanças no código-fonte.
+
+Além disso, serviços de mais alto nível podem se beneficiar de descrições em uma linguagem declarativa qualquer, para realizar a implantação automática de componentes num domínio. Administradores de sistema, sem um conhecimento maior sobre o desenvolvimento de componentes de \emph{software}, podem alterar a configuração de aplicações sem a necessidade da intervenção de um programador.
+
+Para facilitar esse processo de externalização da configuração do componente, o SCS utiliza o conceito de \emph{builders}. \emph{Builders} são pequenas bibliotecas que lêem uma descrição de um componente em uma linguagem específica e então interpretam os dados para criar um componente de acordo com a configuração desejada. O SCS-Lua já fornece um \emph{builder} para a linguagem XML.
+
+\subsubsection{XMLComponentBuilder}\label{xml}
+
+O \emph{XMLComponentBuilder} interpreta um arquivo XML com a descrição de um componente e retorna um componente pronto com a configuração especificada nesse arquivo. Na versão atual não é possível especificar parâmetros para os construtores das facetas. É possível especificar facetas, receptáculos, o Identificador do Componente e a implementação do contexto a ser usada. O Código~\ref{lst:xml} mostra um XML de exemplo, enquanto que o Código~\ref{lst:xmlbuilder} demonstra como utilizar o \emph{XMLComponentBuilder}.
+
+\begin{labeledcode}[xml]{xml}{Arquivo XML Definindo um Componente}
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<component xmlns="tecgraf.scs">
+  <id>
+    <name>ExemploArquivoXML</name>
+    <version>1.0.0</version>
+    <platformSpec>Lua</platformSpec>
+  </id>
+  <context>
+    <type>MyComponentContext</type>
+  </context>
+  <facets>
+    <facet>
+      <name>MyFacetName</name>
+      <interfaceName>IDL:mymodule/MyFacet:1.0</interfaceName>
+      <facetImpl>MyFacet</facetImpl>
+    </facet>
+    <facet>
+      <name>AnotherFacet</name>
+      <interfaceName>IDL:mymodule/AnotherFacet:1.0</interfaceName>
+      <facetImpl>AnotherFacet</facetImpl>
+    </facet>
+  </facets>
+  <receptacles>
+    <receptacle>
+      <name>MyReceptacleName</name>
+      <interfaceName>IDL:mymodule/MyFacet:1.0</interfaceName>
+      <isMultiplex>true</isMultiplex>
+    </receptacle>
+  </receptacles>
+</component>
+\end{labeledcode}
+
+\begin{labeledcode}[lua]{xmlbuilder}{Exemplo de uso do XMLComponentBuilder}
+local builder = require "scs.core.builder.XMLComponentBuilder"
+
+-- carga do orb, das IDLs e outros requires
+...
+
+-- criação do componente. 'instance' será um MyComponentContext, já com todas as
+-- facetas e receptáculos especificados no arquivo XML
+local instance = builder:build(orb, "exemplo.xml")
+\end{labeledcode}
+
+Para obter a implementação de facetas e contexto, o \emph{XMLComponentBuilder} realiza um \emph{require} no valor fornecido na \emph{tag} respectiva. Se o nome de uma faceta já existir, a faceta anterior será substituída pela nova.
+
+O SCS fornece em seu pacote de distribuição um arquivo chamado \emph{ComponentDescription.xsd} que contém o \emph{schema} XML utilizado pelo XMLComponentBuilder em qualquer linguagem suportada pelo SCS. A versão Lua atual, no entanto, não verifica o XML fornecido pelo usuário contra o \emph{schema}.
+
+\bibliography{bibliografia}
+
+\end{document}

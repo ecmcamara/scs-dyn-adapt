@@ -1,0 +1,245 @@
+#ifndef SCS_IDL
+#define SCS_IDL
+
+/* 
+ * \brief Basic SCS module.
+ *
+ * There are three mandatory interfaces to compose a SCS component:
+ * IComponent, IReceptacles and IMetaInterface.
+ * They provide support for introspection and management of facets and 
+ * receptacles, besides component life cycle.
+ */
+module scs {
+  module core {
+    /** \brief Indicates that an error occurred while starting up the component. */
+    exception StartupFailed {};
+    /** \brief Indicates that an error occurred while shutting down the component. */
+    exception ShutdownFailed {};
+    /** \brief Indicates that the name used as an identifier did not exist. */
+    exception InvalidName {
+      string name;
+    };
+    /** \brief Indicates that the provided object does not implement the expected interface. */
+    exception InvalidConnection {};
+    /** \brief Indicates that a connection was already made. */
+    exception AlreadyConnected {};
+    /** \brief Indicates that the maximum number of connections was already reached. */
+    exception ExceededConnectionLimit {};
+    /** \brief Indicates that there's no connection with the provided identifier. */
+    exception NoConnection {};
+
+    /** \brief Number used as a connection identifier. */
+    typedef unsigned long ConnectionId;
+    /** \brief List of names. */
+    typedef sequence<string> NameList;
+
+    /** 
+     * \brief Facet description. Consists of a name used as the facet identifier,
+     * the interface that the facet implements, and a remote reference to the 
+     * facet.
+     */
+    struct FacetDescription {
+      string name; /**< \brief Name used as the facet identifier within the component. */
+      string interface_name; /**< \brief IDL interface (repository ID) that the facet implements. */
+      Object facet_ref; /**< \brief A remote reference to the facet. */
+    };
+    typedef sequence<FacetDescription> FacetDescriptions; /**< \brief 
+    A sequence of facet descriptions. */
+
+    /**
+     * \brief Connection description. Consists of an identifier number and a
+     * remote reference to the connected facet.
+     */
+    struct ConnectionDescription {
+      ConnectionId id; /**< \brief Connection identifier. */
+      Object objref; /**< \brief Remote reference to the connected facet. */
+    };
+    typedef sequence<ConnectionDescription> ConnectionDescriptions; /**< \brief
+    A sequence of connection descriptions. */
+
+   /** 
+    * \brief Receptacle description. Consists of a name used as the receptacle
+    * identifier, the interface that the receptacle expects, a boolean 
+    * indicating if the receptacle accepts more than one connection, and a list
+    * of established connections.
+    */
+   struct ReceptacleDescription {
+      string name; /**< \brief Name used as the receptacle identifier within the component. */
+      string interface_name; /**< \brief IDL interface (repository ID) that the receptacle expects. */         
+      boolean is_multiplex; /**< \brief Indicates whether the receptacle allows more than one connection. True if positive. */
+      ConnectionDescriptions connections; /**< \brief List of established connections in a given moment. */
+    };
+    typedef sequence<ReceptacleDescription> ReceptacleDescriptions; /**< \brief
+        A sequence of receptacle descriptions. */
+
+    /**
+     * \brief Component Identifier. This is NOT an instance identifier, but
+     * rather a definition identifier. Consists of a name and a version composed
+     * by three numbers, besides a string to be used as platform specification.
+     * There's no current support in the model for platform specifications, they
+     * must be defined and interpreted by the application.
+     *
+     * There's also no support for the ComponentId to be used as a reliable
+     * component identifier in a domain. There are, however, higher-level
+     * SCS frameworks (such as the deployment system) that provide this kind of
+     * functionality.
+     */
+    struct ComponentId {
+      string name; /**< \brief Component name. */
+      octet major_version; /**< \brief The version major number. */
+      octet minor_version; /**< \brief The version minor number. */
+      octet patch_version; /**< \brief The version patch number. */
+      string platform_spec; /**< \brief A description of the platforms 
+          supported by this component. */
+    };
+    typedef sequence<ComponentId> ComponentIdSeq; /**< \brief A sequence of 
+        ComponentId's. */
+
+    /**
+      * \brief This facet represents a component in a distributed environment.
+      * It's a component's most basic facet and it defines operations for life
+      * cycle and for obtaining other facets.
+      */
+    interface IComponent {
+      /**
+       * \brief This method must be implemented by the component developer, if
+       * any startup behaviour is necessary. An example would be a check for
+       * necessary connections before accepting certain requests for other
+       * facets.
+       * 
+       * \exception StartupFailed If an error occurs or not all requirements for
+       * initialization of the component are met. This exception must be thrown
+       * by the component developer, as deemed appropriate.
+       */
+      void startup() raises (StartupFailed);
+      /**
+       * \brief This method must be implemented by the component developer, if
+       * any shutdown behaviour is necessary.
+       * 
+       * \exception ShutdownFailed If an error occurs while shutting down the
+       * component. This exception must be thrown by the component developer,
+       * as deemed appropriate.
+       */
+      void shutdown() raises (ShutdownFailed);
+      /**
+       * \brief Provides the CORBA reference to one of the component's facets, by its
+       * interface. Since there can be more than one facet with the same interface,
+       * there's no guarantee on which one of these will be returned.
+       * 
+       * \param[in] facet_interface The facet interface.
+       * \return The CORBA object that represents the facet. If there's more than
+       *         one facet with the specified interface, any one of them may be
+       *         returned. If there's no facet with the specified interface, null is
+       *         returned.
+       */
+      Object getFacet (in string facet_interface);
+      /**
+       * \brief Provides the CORBA reference to one of the component's facets, by its name.
+       * There cannot be more than one facet with the same name, so there's only one
+       * possible return value.
+       * 
+       * \param[in] facet The facet name.
+       * \return The CORBA object that represents the facet. If there's no facet
+       *         with the specified interface, null is returned.
+       */
+      Object getFacetByName (in string facet);
+      /**
+       * \brief Provides the component's ComponentId. ComponentId's aren't instance
+       * identifiers; they specify a component's name, version and platform
+       * specification.
+       * 
+       * \return The ComponentId.
+       */
+      ComponentId getComponentId ();
+    };
+    typedef sequence<IComponent> IComponentSeq; /**< A sequence of IComponent
+        references. */
+
+    /**
+      * \brief The IReceptacles interface provides access to and
+      * manipulation of the component's receptacles.
+      */
+    interface IReceptacles {
+      /**
+       * \brief Connects a remote facet to a receptacle. The facet must implement the
+       * interface specified by the receptacle.
+       * 
+       * \param[in] receptacle The receptacle name.
+       * \param[in] obj The remote facet reference.
+       * \return The connection identifier. It's valid for the entire component, not
+       *         for a specific receptacle.
+       * \exception InvalidName If there's no receptacle with the specified name.
+       * \exception InvalidConnection If the facet object does not implement the
+       *         receptacle's specified interface.
+       * \exception AlreadyConnected If the receptacle supports only one connection and
+       *         is already connected.
+       * \exception ExceededConnectionLimit If the receptacle is multiplex and the
+       *         maximum number of connections was already reached.
+       */
+      ConnectionId connect (in string receptacle, in Object obj)
+         raises (InvalidName, InvalidConnection, AlreadyConnected,
+                 ExceededConnectionLimit);
+      /**
+       * \brief Disconnects a remote facet from a receptacle. There's no need to specify
+       * the receptacle.
+       * 
+       * \param[in] id The connection identifier.
+       * \exception InvalidConnection If the connection identifier is invalid, i.e.,
+       *         less than or equal to zero.
+       * \exception NoConnection If the provided connection identifier does not exist.
+       */
+      void disconnect (in ConnectionId id)
+         raises (InvalidConnection, NoConnection);
+      /**
+       * \brief Provides metadata about all connections of a specified receptacle.
+       * 
+       * \param[in] receptacle The receptacle name.
+       * \return An array with the connections metadata.
+       * \exception InvalidName If the specified receptacle does not exist.
+       */
+      ConnectionDescriptions getConnections (in string receptacle)
+         raises (InvalidName);
+    };
+
+    /**
+      * \brief The IMetaInterface interface provides access to the
+      * component's metadata, acting as an introspection facet.
+      */
+    interface IMetaInterface {
+      /**
+       * \brief Provides CORBA references and metadata of all of the component's facets.
+       * 
+       * \return An array with the facets metadata.
+       */
+      FacetDescriptions getFacets();
+      /**
+       * \brief Provides CORBA references and metadata of some of the component's facets,
+       * specified by their names.
+       * 
+       * \param[in] names The names of the desired facets.
+       * \return An array with the specified facets metadata.
+       * \exception InvalidName If none of the specified names was found.
+       */
+      FacetDescriptions getFacetsByName(in NameList names)
+         raises (InvalidName);
+      /**
+       * \brief Provides metadata of all of the component's receptacles.
+       * 
+       * \return An array with the receptacles metadata.
+       */
+      ReceptacleDescriptions getReceptacles();
+      /**
+       * \brief Provides metadata of some of the component's receptacles, specified by
+       * their names.
+       * 
+       * \param[in] names The names of the desired receptacles.
+       * \return An array with the specified receptacles metadata.
+       * \exception InvalidName If none of the specified names was found.
+       */
+      ReceptacleDescriptions getReceptaclesByName(in NameList names)
+         raises (InvalidName);
+    };
+  };
+};
+
+#endif
