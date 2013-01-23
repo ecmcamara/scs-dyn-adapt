@@ -1,0 +1,24 @@
+#IOR
+*.ior
+
+#OS junk files
+[Tt]humbs.db
+*.DS_Store
+
+*.bak
+
+*.log
+
+Ankh.NoLoad
+*.pubxml
+
+
+#Subversion files
+.svn
+
+# Office Temp Files
+~$*
+
+#ncrunch
+*ncrunch*
+*crunch*.local.xml
