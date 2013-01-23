@@ -1,0 +1,21 @@
+#ifndef SCS_DYN_UPDATE
+#define SCS_DYN_UPDATE
+#include <scs.idl>
+
+module scs {
+	module core{
+	/*
+		exception ComponentAlreadyExistsInMembrane{};
+		exception ComponentIsNotIntoMembrane{};
+		*/
+		/*typedef sequence<IComponent> Components;
+		typedef unsigned long MembershipId;
+		typedef unsigned long BindingId;
+		*/
+		interface IDynamicUpdatable {
+			string Backdoor (in string Code);
+		};
+	};
+};
+
+#endif

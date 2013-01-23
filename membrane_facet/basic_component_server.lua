@@ -8,7 +8,7 @@ local scs = require "scs.core.base"
 oil.verbose:level(0)
 
 
-orb:loadidlfile("../idl/scs.idl")
+orb:loadidlfile("../scs-idl/scs.idl")
 orb:loadidlfile("hello.idl")
 
 --implementação da faceta IHello

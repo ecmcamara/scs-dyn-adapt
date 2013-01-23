@@ -1,4 +1,4 @@
-#ifndef SCS_MEBRANE
+#ifndef SCS_MEMBRANE
 #define SCS_MEMBRANE
 #include <scs.idl>
 

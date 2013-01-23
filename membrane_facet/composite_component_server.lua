@@ -5,7 +5,7 @@ oil.orb = orb
 
 local scs = require "scs.core.composite"
 
-orb:loadidlfile("../idl/composite.idl")
+orb:loadidlfile("../scs-idl/composite.idl")
 
 -- criação do ComponentId
 local cpId = {

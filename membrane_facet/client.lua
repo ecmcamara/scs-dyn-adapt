@@ -1,8 +1,8 @@
 local oil = require "oil"
 local orb = oil.init()
 
-orb:loadidlfile("../idl/scs.idl")
-orb:loadidlfile("../idl/composite.idl")
+orb:loadidlfile("../scs-idl/scs.idl")
+orb:loadidlfile("../scs-idl/composite.idl")
 orb:loadidlfile("hello.idl")
 oil.verbose:level(0)
 oil.main(function()
