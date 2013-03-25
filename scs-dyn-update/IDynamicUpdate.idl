@@ -1,0 +1,52 @@
+module scs{
+	module demos{
+		module dynupdate
+		{
+			struct ComponentId {
+				string name; /* O nome identificador do componente. */
+				octet major_version; /* O número principal da versão. */
+				octet minor_version; /* O número secundário da versão. */
+				octet patch_version; /* O número de revisão da versão. */
+				string platform_spec; /* A especificação da plataforma 
+									  necessária para o funcionamento do 
+									  componente. */
+			};
+
+			typedef sequence<octet> Code;
+
+			struct NewFacetDescription {
+				string name; /* O nome identificador da faceta*/
+				string interface_name; /* O nome identificador da interace da 
+									   faceta*/
+				Code facet_implementation; /* A implementação da faceta */
+			};
+	
+			struct FacetUpdateDescription{
+				NewFacetDescription description; /* Descrição e implementação 
+												 da nova faceta */
+				Code patchCode;/* Código de recuperação de estado */
+			};
+
+			typedef sequence<FacetUpdateDescription> FacetUpdateDescriptions;
+			
+			interface IBackdoor{
+				string Backdoor( in Code patch);
+				string BackdoorAsync( in Code patch);
+				string GetBackdoorAsyncRet (in string key);
+			};
+
+			interface IDynamicUpdatable{
+				string GetUpdateState();
+				boolean ChangeUpdateState (in string state);
+				string UpdateFacet (in FacetUpdateDescription facet);
+				string UpdateFacetAsync (in FacetUpdateDescription facet);
+				string GetUpdateFacetAsyncRet (in string key);
+				string UpdateComponent(in ComponentId newId, 
+					in FacetUpdateDescriptions facets);
+				string UpdateComponentAsync(in ComponentId newId,
+					in FacetUpdateDescriptions facets);
+				string GetUpdateComponentAsyncRet(in string key);
+			};
+		};
+	};
+};
