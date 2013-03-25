@@ -33,7 +33,9 @@ oil.main(function()
 		IUpdateFacet = orb:narrow(IUpdateFacet,"IDL:scs/demos/dynupdate/IDynamicUpdatable:1.0")
 
 		if IUpdateFacet then		
-
+			print(IUpdateFacet:GetUpdateState())
+			print(IUpdateFacet:ChangeUpdateState("SUSPENDED"))
+			print(IUpdateFacet:GetUpdateState())
 			print(IUpdateFacet:UpdateFacet({
 				description={name="IHello",
 					interface_name="IDL:scs/demos/helloworld/IHello:1.0",
