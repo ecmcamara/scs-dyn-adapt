@@ -36,6 +36,8 @@ module scs{
 			};
 
 			interface IDynamicUpdatable{
+				string GetUpdateState();
+				boolean ChangeUpdateState (in string state);
 				string UpdateFacet (in FacetUpdateDescription facet);
 				string UpdateFacetAsync (in FacetUpdateDescription facet);
 				string GetUpdateFacetAsyncRet (in string key);
