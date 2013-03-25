@@ -29,7 +29,7 @@ function IDynamicUpdatable:UpdateFinished()
 	end
 end
 
---string UpdateFacet (in string name, in string implementation);
+
 function IDynamicUpdatable:GetUpdateState()
 	return self.updatingState
 end
@@ -101,7 +101,7 @@ function IDynamicUpdatable:UpdateFacet(facet)
 	self:UpdateFinished()
 	return tostring("Mission Acomplished!")
 end
---string UpdateFacetAsync (in string name, in string implementation);
+
 function IDynamicUpdatable:UpdateFacetAsync(facet)
 	local ret = #self._UpdateFacetAsync
 	self._UpdateFacetAsync[#self._UpdateFacetAsync] = "Not Yet"
@@ -110,7 +110,7 @@ function IDynamicUpdatable:UpdateFacetAsync(facet)
 		self._UpdateFacetAsync[ret]= self:UpdateFacet(facet) end)
 	return ret..""
 end
---string GetUpdateFacetAsyncRet (in string key);
+
 function IDynamicUpdatable:GetUpdateFacetAsyncRet(key)
 	local i = tonumber(key)
 	local ret = self._UpdateFacetAsync[i]
@@ -120,7 +120,7 @@ function IDynamicUpdatable:GetUpdateFacetAsyncRet(key)
 		return "Invalid Key"
 	end
 end
---string UpdateComponent(in ComponentId currentId,in ComponentId newId, in FacetDescriptions facets, in ReceptacleDescriptions receptacles);
+
 function IDynamicUpdatable:UpdateComponent(newId,facets)	
 	self:ComponentUpdateStarted()
 	self.context._componentId = newId
@@ -131,7 +131,7 @@ function IDynamicUpdatable:UpdateComponent(newId,facets)
 	self:ComponentUpdateFinished()
 	return ret
 end
---string UpdateComponentAsync(in ComponentId currentId,in ComponentId newId, in FacetDescriptions facets, in ReceptacleDescriptions receptacles);
+
 function IDynamicUpdatable:UpdateComponentAsync(newId,facets)
 	local ret = #self._UpdateComponentAsync
 	self._UpdateComponentAsync[#self._UpdateComponentAsync] = "Not Yet"
@@ -139,7 +139,7 @@ function IDynamicUpdatable:UpdateComponentAsync(newId,facets)
 		self._UpdateComponentAsync[ret]= self:UpdateComponent(newId,facets) end)
 	return ret..""
 end
---string GetUpdateComponentAsyncRet(in string key);
+
 function IDynamicUpdatable:GetUpdateComponentAsyncRet(key)
 	local i = tonumber(key)
 	local ret = self._UpdateComponentAsync[i]
