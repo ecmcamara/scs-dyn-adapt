@@ -24,11 +24,15 @@ module scs{
 			struct FacetUpdateDescription{
 				NewFacetDescription description; /* Descrição e implementação 
 												 da nova faceta */
-				Code patchCode;/* Código de recuperação de estado */
+				Code patchUpCode;/* Código de aplicação da atualização */
+				Code patchDownCode;/* Código de rollback da atualização */
+				string key;/*Uma string para ser registrada como sendo a chave do objeto no ORB */
 			};
 
 			typedef sequence<FacetUpdateDescription> FacetUpdateDescriptions;
 			
+			exception RawState { string msg; };
+
 			interface IBackdoor{
 				string Backdoor( in Code patch);
 				string BackdoorAsync( in Code patch);
@@ -38,14 +42,28 @@ module scs{
 			interface IDynamicUpdatable{
 				string GetUpdateState();
 				boolean ChangeUpdateState (in string state);
+
+				string InsertFacet (in FacetUpdateDescription facet);
+				string InsertFacetAsync (in FacetUpdateDescription facet);
+				
+				FacetUpdateDescription RetrieveFacet (in string facetName) raises(RawState);
+				
 				string UpdateFacet (in FacetUpdateDescription facet);
 				string UpdateFacetAsync (in FacetUpdateDescription facet);
-				string GetUpdateFacetAsyncRet (in string key);
+				
+				string DeleteFacet (in string facetName);
+				string DeleteFacetAsync (in string facetName);
+				
 				string UpdateComponent(in ComponentId newId, 
 					in FacetUpdateDescriptions facets);
 				string UpdateComponentAsync(in ComponentId newId,
 					in FacetUpdateDescriptions facets);
-				string GetUpdateComponentAsyncRet(in string key);
+				
+				string GetAsyncRet(in string key);
+
+				boolean RollbackFacet(in string facetName);
+
+				boolean RollforwardFacet(in string facetName);
 			};
 		};
 	};

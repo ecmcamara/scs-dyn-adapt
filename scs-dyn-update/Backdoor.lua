@@ -13,10 +13,14 @@ function Backdoor:Backdoor(str)
 	if not f then
 		return tostring(e)
 	else
-		local locals = { self = self}
+	    local p = ""
+		local serverprint = print
+		local print = function (s) p = p..s.."\n" end
+		local locals = { self = self.context, print=print, serverprint = serverprint}
 		setfenv(f, setmetatable(locals, { __index = _G }))
 		local status,ret = pcall(f)
-		return tostring(ret)
+		if ret then p = p .."\n".. ret end
+		return tostring(p)
 	end
 end
 --string BackdoorAsync (in string code);

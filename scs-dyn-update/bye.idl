@@ -1,0 +1,10 @@
+module scs{
+	module demos{
+		module byeworld
+		{
+			interface IBye{
+				void sayBye(in string str);
+			};
+		};
+	};
+};
