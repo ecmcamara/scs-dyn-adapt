@@ -16,10 +16,6 @@ local IDynamicUpdatable = oo.class{
 	_rollBacks={},
 	--tabela que mapeia o codigo de rollback
 	_downCodes={},
-	--tabela que mapeia as versões seguintes das facetas
-	_rollForward={},
-	--tabela que mapeia o codigo de rollforard
-	_upCodes={},
 	--tabela que guarda as facetas deletadas
 	_deletedFacets={}
 }
@@ -99,6 +95,14 @@ function IDynamicUpdatable:InsertFacet(facet)
 		self:UpdateFinished()
 		return tostring(errorMessage2)
 	end
+	--check for interface
+	if not facet.description.facet_idl or facet.description.facet_idl =="" then
+		return "The ORB needs the IDL in order to create a facet"
+	end
+	local statusIDL, errorMessage3 = pcall(oil.orb.loadidl,oil.orb,facet.description.facet_idl)
+	if not statusIDL then
+		return tostring(errorMessage3)
+	end
 	--instanciate new facet
 	local statusImplementation,newFacet = pcall(impl)
 	--check for errors
@@ -114,7 +118,7 @@ function IDynamicUpdatable:InsertFacet(facet)
 	end
 	newFacet = self.context._facets[facet.description.name]
 	--run patchUpCode
-	local locals = { self = self,_newFacet=newFacet}
+	local locals = { self = self,_newFacet=newFacet.facet_ref}
 	setfenv(patchUpCode, setmetatable(locals, { __index = _G }))
 	local statusPatch,errorMessage5= pcall(patchUpCode)
 	if not statusPatch then
@@ -185,15 +189,13 @@ function IDynamicUpdatable:UpdateFacet(facet)
 	end
 	newFacet = self.context._facets[facet.description.name]
 	--run patchUpCode
-	local locals = { self = self,_oldFacet=oldFacet,_newFacet=newFacet}
+	local locals = { self = self,_oldFacet=oldFacet.facet_ref,_newFacet=newFacet.facet_ref}
 	setfenv(patchUpCode, setmetatable(locals, { __index = _G }))
 	local statusPatch,errorMessage5= pcall(patchUpCode)
 	if not statusPatch then
 		self:UpdateFinished()
 		return tostring(errorMessage5)
 	end
-	self._rollForward[oldFacet] = newFacet
-	self._upCodes[oldFacet]= patchUpCode
 	self._rollBacks[newFacet] = oldFacet
 	self._downCodes[newFacet] = patchDownCode
 	self._lastUpdate[newFacet] = facet
@@ -235,7 +237,7 @@ function IDynamicUpdatable:RollbackFacet(facetName)
 			self:UpdateFinished()
 			return false
 		end
-		local statusUpdate, errorMessage = pcall(cc.addFacet,self.context,facetName,self._deletedFacets[facetName].interface_name,self._deletedFacets[facetName].implementation,self._deletedFacets[facetName].key)
+		local statusUpdate, errorMessage = pcall(cc.addFacet,self.context,facetName,self._deletedFacets[facetName].interface_name,self._deletedFacets[facetName].facet_ref,self._deletedFacets[facetName].key)
 		if not statusUpdate then
 			self:UpdateFinished()
 			return false
@@ -254,15 +256,23 @@ function IDynamicUpdatable:RollbackFacet(facetName)
 		--_rollBacks[oldFacet]
 		--_downCodes[oldFacet]
 		local newFacet = self._rollBacks[oldFacet]
-		local statusUpdate, errorMessage4 = pcall(cc.updateFacet,self.context,facetName,newFacet.implementation)
+		local statusUpdate, errorMessage4 = pcall(cc.updateFacet,self.context,facetName,newFacet.facet_ref)
 		if not statusUpdate then
+		print(statusUpdate,errorMessage4)
 			self:UpdateFinished()
 			return false
 		end
-		--execute patchDownCode and change facet
+		
+		--update the reference on rollbacktable
+		local rollback = self._rollBacks[newFacet]
+		local downCode = self._downCodes[newFacet]
+		self._downCodes[newFacet] = nil
+		self._rollBacks[newFacet] = nil
 		newFacet = self.context._facets[facetName]
+		self._rollBacks[newFacet] = rollback
+		self._downCodes[newFacet] = downCode
 		--run patchDownCode
-		local locals = { self = self,_oldFacet=oldFacet,_newFacet=newFacet}
+		local locals = { self = self,_oldFacet=oldFacet.facet_ref,_newFacet=newFacet.facet_ref}
 		setfenv(self._downCodes[oldFacet], setmetatable(locals, { __index = _G }))
 		local statusPatch,errorMessage5= pcall(self._downCodes[oldFacet])
 			if not statusPatch then
@@ -273,53 +283,7 @@ function IDynamicUpdatable:RollbackFacet(facetName)
 		return true
 	end
 end
-function IDynamicUpdatable:RollforwardFacet(facetName)
-	local check = self:CheckComponent() 
-	if check then
-		return false
-	end
-	self:UpdateStarted()
-	--check if the facet still exists or has been deleted
-	if not self.context._facets[facetName] then
-		if not _deletedFacets[facetName] then
-			self:UpdateFinished()
-			return false
-		end
-		local statusUpdate, errorMessage = pcall(cc.addFacet,self.context,facetName,self._deletedFacets[facetName].interface_name,self._deletedFacets[facetName].implementation,self._deletedFacets[facetName].key)
-		if not statusUpdate then
-			self:UpdateFinished()
-			return false
-		end
-		self._deletedFacets[facetName] = nil
-		self:UpdateFinished()
-		return true
-	end
-	local oldFacet = self.context._facets[facetName]
-	--facet exists, check forward version
-	if not self._rollForward[oldFacet] then
-		self:UpdateFinished()
-		return false
-	else
-		local newFacet = self._rollForward[oldFacet]
-		local statusUpdate, errorMessage4 = pcall(cc.updateFacet,self.context,facetName,newFacet.implementation)
-		if not statusUpdate then
-			self:UpdateFinished()
-			return false
-		end
-		--execute patchUpCode and change facet
-		newFacet = self.context._facets[facetName]
-		--run patchUpCode
-		local locals = { self = self,_oldFacet=oldFacet,_newFacet=newFacet}
-		setfenv(self._upCodes[oldFacet], setmetatable(locals, { __index = _G }))
-		local statusPatch,errorMessage5= pcall(self._upCodes[oldFacet])
-			if not statusPatch then
-			self:UpdateFinished()
-			return false
-		end
-		self:UpdateFinished()
-		return true
-	end
-end
+
 function IDynamicUpdatable:UpdateComponent(newId,facets)	
 	self:ComponentUpdateStarted()
 	self.context._componentId = newId
@@ -329,7 +293,7 @@ function IDynamicUpdatable:UpdateComponent(newId,facets)
 	end
 	self:ComponentUpdateFinished()
 	return ret
-end
+end  
 
 function IDynamicUpdatable:InsertFacetAsync(facet)
 	local ret = #self._AsyncCalls

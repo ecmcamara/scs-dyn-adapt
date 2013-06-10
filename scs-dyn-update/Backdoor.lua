@@ -15,7 +15,7 @@ function Backdoor:Backdoor(str)
 	else
 	    local p = ""
 		local serverprint = print
-		local print = function (s) p = p..s.."\n" end
+		local print = function (s) p = p..tostring(s).."\n" end
 		local locals = { self = self.context, print=print, serverprint = serverprint}
 		setfenv(f, setmetatable(locals, { __index = _G }))
 		local status,ret = pcall(f)

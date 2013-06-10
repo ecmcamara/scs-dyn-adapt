@@ -15,18 +15,19 @@ module scs{
 			typedef sequence<octet> Code;
 
 			struct NewFacetDescription {
-				string name; /* O nome identificador da faceta*/
+				string name; /* O nome identificador da faceta ui:CU*/
 				string interface_name; /* O nome identificador da interace da 
-									   faceta*/
-				Code facet_implementation; /* A implementação da faceta */
+									   faceta ui:C*/
+				Code facet_implementation; /* A implementação da faceta ui:CU*/
+				Code facet_idl; /* A idl da faceta ui:C*/
 			};
 	
 			struct FacetUpdateDescription{
 				NewFacetDescription description; /* Descrição e implementação 
-												 da nova faceta */
-				Code patchUpCode;/* Código de aplicação da atualização */
+												 da nova faceta ui:CU*/
+				Code patchUpCode;/* Código de aplicação da atualização ui:CU*/
 				Code patchDownCode;/* Código de rollback da atualização */
-				string key;/*Uma string para ser registrada como sendo a chave do objeto no ORB */
+				string key;/*Uma string para ser registrada como sendo a chave do objeto no ORB ui:C*/
 			};
 
 			typedef sequence<FacetUpdateDescription> FacetUpdateDescriptions;
@@ -63,7 +64,6 @@ module scs{
 
 				boolean RollbackFacet(in string facetName);
 
-				boolean RollforwardFacet(in string facetName);
 			};
 		};
 	};

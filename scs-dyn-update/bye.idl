@@ -4,6 +4,7 @@ module scs{
 		{
 			interface IBye{
 				void sayBye(in string str);
+				string Test(in string str);
 			};
 		};
 	};
