@@ -135,7 +135,7 @@ function IDynamicUpdatable:RetrieveFacet(facetName)
 		return error(check)
 	end
 	local newFacet = self.context._facets[facetName]
-	return _lastUpdate[newFacet]
+	return self._lastUpdate[newFacet]
 end
 --atualiza a faceta
 function IDynamicUpdatable:UpdateFacet(facet)
@@ -266,11 +266,14 @@ function IDynamicUpdatable:RollbackFacet(facetName)
 		--update the reference on rollbacktable
 		local rollback = self._rollBacks[newFacet]
 		local downCode = self._downCodes[newFacet]
+		local lastUpdate= self._lastUpdate[newFacet]
 		self._downCodes[newFacet] = nil
 		self._rollBacks[newFacet] = nil
+		self._lastUpdate[newFacet] = nil
 		newFacet = self.context._facets[facetName]
 		self._rollBacks[newFacet] = rollback
 		self._downCodes[newFacet] = downCode
+		self._lastUpdate[newFacet] = lastUpdate
 		--run patchDownCode
 		local locals = { self = self,_oldFacet=oldFacet.facet_ref,_newFacet=newFacet.facet_ref}
 		setfenv(self._downCodes[oldFacet], setmetatable(locals, { __index = _G }))

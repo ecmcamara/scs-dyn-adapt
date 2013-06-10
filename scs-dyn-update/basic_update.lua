@@ -10,14 +10,7 @@ local scs = require "scs.core.base"
 oil.verbose:level(0)
 orb:loadidlfile("../scs-idl/scs.idl")
 orb:loadidlfile("dynupdate.idl")
-orb:loadidlfile("hello.idl")
 
---implementação da faceta IHello
-local Hello = oo.class{name = "World"}
-function Hello:sayHello(str)
-	print("Hello " .. str .. "!")
-end
---fim
 
 --criação das descrições de facetas e receptáculos: Basic component
 local facetDescs = {}
@@ -31,13 +24,6 @@ facetDescs.IBackdoor = {
 	interface_name = "IDL:scs/demos/dynupdate/IBackdoor:1.0",
 	class = IBackdoor
 }
-facetDescs.IHello = {
-	name = "IHello",
-	interface_name = "IDL:scs/demos/helloworld/IHello:1.0",
-	class = Hello,
-	key ="Hi"
-}
-
 local receptDescs = {}
 
 local cpId = {
