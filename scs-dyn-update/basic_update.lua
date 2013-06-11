@@ -9,7 +9,7 @@ local scs = require "scs.core.base"
 
 oil.verbose:level(0)
 orb:loadidlfile("../scs-idl/scs.idl")
-orb:loadidlfile("dynupdate.idl")
+orb:loadidlfile("../scs-idl/dynupdate.idl")
 
 
 --criação das descrições de facetas e receptáculos: Basic component

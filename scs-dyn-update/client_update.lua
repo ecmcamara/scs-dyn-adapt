@@ -2,7 +2,7 @@ local oil = require "oil"
 local orb = oil.init()
 
 orb:loadidlfile("../scs-idl/scs.idl")
-orb:loadidlfile("dynupdate.idl")
+orb:loadidlfile("../scs-idl/dynupdate.idl")
 orb:loadidlfile("bye.idl")
 
 oil.verbose:level(0)
