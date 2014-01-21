@@ -33,36 +33,40 @@ module scs{
 			typedef sequence<FacetUpdateDescription> FacetUpdateDescriptions;
 			
 			exception RawState { string msg; };
+			exception CannotChangeState { string msg; };
+			exception CannotFinishIfNotStarted { string msg; };
 
 			interface IBackdoor{
-				string Backdoor( in Code patch);
+				any Backdoor( in Code patch);
 				string BackdoorAsync( in Code patch);
-				string GetBackdoorAsyncRet (in string key);
+				any GetBackdoorAsyncRet (in string key);
 			};
 
 			interface IDynamicUpdatable{
 				string GetUpdateState();
-				boolean ChangeUpdateState (in string state);
+				boolean ChangeUpdateState(in string state);
+				string StartUpdate() raises(CannotChangeState);
+				string FinishUpdate() raises(CannotFinishIfNotStarted);
 
-				string InsertFacet (in FacetUpdateDescription facet);
-				string InsertFacetAsync (in FacetUpdateDescription facet);
+				string InsertFacet(in string updateKey, in FacetUpdateDescription facet);
+				string InsertFacetAsync(in FacetUpdateDescription facet);
 				
-				FacetUpdateDescription RetrieveFacet (in string facetName) raises(RawState);
+				FacetUpdateDescription RetrieveFacet(in string updateKey,in string facetName) raises(RawState);
 				
-				string UpdateFacet (in FacetUpdateDescription facet);
-				string UpdateFacetAsync (in FacetUpdateDescription facet);
+				string UpdateFacet(in string updateKey,in FacetUpdateDescription facet);
+				string UpdateFacetAsync(in FacetUpdateDescription facet);
 				
-				string DeleteFacet (in string facetName);
-				string DeleteFacetAsync (in string facetName);
+				string DeleteFacet(in string updateKey,in string facetName);
+				string DeleteFacetAsync(in string facetName);
 				
-				string UpdateComponent(in ComponentId newId, 
+				string UpdateComponent(in string updateKey,in ComponentId newId, 
 					in FacetUpdateDescriptions facets);
 				string UpdateComponentAsync(in ComponentId newId,
 					in FacetUpdateDescriptions facets);
 				
 				string GetAsyncRet(in string key);
 
-				boolean RollbackFacet(in string facetName);
+				boolean RollbackFacet(in string updateKey, in string facetName);
 
 			};
 		};

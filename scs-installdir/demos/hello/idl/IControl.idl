@@ -1,0 +1,8 @@
+interface IControl{
+	void volumeUp();
+	void volumeDown();
+	void changeChannelUp();
+	void changeChannelDown();
+	void changeChannel(in long channel);
+	void power();
+};

@@ -1,0 +1,3 @@
+interface IRemoteInput{
+	void buttonPress(in string button);
+};
